@@ -19,7 +19,7 @@ class UploadManager
 public:
     UploadManager(boost::asio::io_service& io_service)
     : io_service(io_service)
-    , file_system_watcher_thread(watcher)
+    , file_system_watcher_thread(FileSystemWatcher{io_service})
     , workers{io_service, io_service, io_service, io_service, io_service}
     {
         try{
@@ -34,7 +34,6 @@ public:
     }
  
 private:
-    FileSystemWatcher watcher;
     std::thread file_system_watcher_thread;
     UploadWorker workers[5];
     boost::asio::io_service& io_service;

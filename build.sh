@@ -7,5 +7,5 @@ cd $BUILD_TYPE
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 make -j
 
-cp client/client ../clt
-cp server/server ../svr
+cp client/client ../client_upload
+cp server/server ../server_upload

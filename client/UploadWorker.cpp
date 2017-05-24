@@ -23,9 +23,9 @@ void UploadWorker::handle_connect(const boost::system::error_code& error)
     {
         std::string item;
         bool en = file_parts_queue.try_dequeue(item);
-        parse_file_parts(item);
         if (en)
         {
+            parse_file_parts(item);
             file_stream->open(current_file);
             send_bytes_written = 0;
             file_stream->seekg(send_start_index);

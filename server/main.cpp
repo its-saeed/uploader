@@ -29,7 +29,7 @@ public:
     void start()
     {
         output_stream->open("part_" + std::to_string(std::rand()));
-        boost::asio::async_read(socket_, boost::asio::buffer(buffer_),
+        boost::asio::async_read_until(socket_, buffer_,'\n',
                 boost::bind(&tcp_connection::handle_read, shared_from_this(),
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
@@ -54,19 +54,36 @@ private:
 
         if (bytes_transferred)
         {
-            output_stream->write(buffer_.data(), buffer_.size());
+            //output_stream->write(buffer_.data(), buffer_.size());
+            parse_buffer();
         }
 
-        boost::asio::async_read(socket_, boost::asio::buffer(buffer_),
+        boost::asio::async_read_until(socket_, buffer_, '\n',
                 boost::bind(&tcp_connection::handle_read, shared_from_this(),
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
     }
 
+    void parse_buffer()
+    {
+        uint8_t message_type;
+        uint32_t file_id;
+        std::string file_name;
+        uint64_t file_size;
+        uint16_t file_parts;
+
+        std::istream response_stream(&buffer_);
+
+        response_stream >> message_type >> file_id >> file_size >> file_parts >> file_name;
+
+        cout << "File is being upload: file name: " << file_name << " size: " << file_size
+            << " in " << file_parts << " parts.";
+    }
+
     tcp::socket socket_;
     std::string message_;
     ofstream* output_stream;
-    boost::array<char, 1024> buffer_;
+    boost::asio::streambuf buffer_;
 
 };
 
