@@ -1,3 +1,4 @@
+#define BOOST_NO_CXX11_SCOPED_ENUMS
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -19,24 +20,16 @@ class UploadManager
 public:
     UploadManager(boost::asio::io_service& io_service)
     : io_service(io_service)
-    , file_system_watcher_thread(FileSystemWatcher{io_service})
-    , workers{io_service, io_service, io_service, io_service, io_service}
+    , watcher{io_service}
+    , workers{io_service}//, io_service, io_service, io_service, io_service}
     {
-        try{
-            auto native_handle = file_system_watcher_thread.native_handle();
-            pthread_setname_np(native_handle, "watcher");
-            file_system_watcher_thread.detach();
-        }
-        catch (std::exception& e)
-        {
-            cout << e.what();
-        }
     }
  
 private:
     std::thread file_system_watcher_thread;
-    UploadWorker workers[5];
+    UploadWorker workers;
     boost::asio::io_service& io_service;
+    FileSystemWatcher watcher;
 };
 
 int main()

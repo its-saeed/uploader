@@ -45,14 +45,14 @@ private:
     void handle_read(const boost::system::error_code& error,
         std::size_t bytes_transferred)
     {
-        cout << "bt: " << bytes_transferred << endl;
         if (error)
         {
             socket_.close();
             return;
         }
 
-        if (bytes_transferred)
+		cout << "bt: " << bytes_transferred << endl;
+		if (bytes_transferred)
         {
             //output_stream->write(buffer_.data(), buffer_.size());
             parse_buffer();
@@ -66,18 +66,18 @@ private:
 
     void parse_buffer()
     {
-        uint8_t message_type;
-        uint32_t file_id;
-        std::string file_name;
-        uint64_t file_size;
-        uint16_t file_parts;
+//        uint8_t message_type;
+//        uint32_t file_id;
+//        std::string file_name;
+//        uint64_t file_size;
+//        uint16_t file_parts;
 
-        std::istream response_stream(&buffer_);
+		std::string output;
+		std::istream response_stream(&buffer_);
 
-        response_stream >> message_type >> file_id >> file_size >> file_parts >> file_name;
+		getline(response_stream, output, '\n');
 
-        cout << "File is being upload: file name: " << file_name << " size: " << file_size
-            << " in " << file_parts << " parts.";
+		cout << "File is being upload:" << output << endl;
     }
 
     tcp::socket socket_;
@@ -110,6 +110,7 @@ private:
     void handle_accept(tcp_connection::pointer new_connection, 
             const boost::system::error_code& error)
     {
+		std::cout << "new connection\n";
         if (!error)
             new_connection->start();
 
