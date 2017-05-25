@@ -60,9 +60,16 @@ void UploadWorker::handle_connect(const boost::system::error_code& error)
     if (!error)
     {
 		file_stream->open(file_part.file_info.file_name);
-		file_stream->seekg(file_part.start_byte_index);
-		write_file_info();
+		if (file_stream->is_open())
+		{
+			file_stream->seekg(file_part.start_byte_index);
+			write_file_info();
+		}
+		else
+			cout << "ERROR: can't open file";
     }
+	else
+		cout << "ERROR: " << error.message();
 }
 
 void UploadWorker::write_file_info()
@@ -88,6 +95,11 @@ void UploadWorker::write_file_info()
 void UploadWorker::handle_write(const boost::system::error_code& error,
 		std::size_t bytes_transferred, bool file_content_transferred)
 {
+	if (error)
+	{
+		cout << "ERROR: " << error.message();
+		return;
+	}
 	if (file_content_transferred)
 		file_part.bytes_written += bytes_transferred;
     write_file_part();
@@ -95,16 +107,21 @@ void UploadWorker::handle_write(const boost::system::error_code& error,
 
 void UploadWorker::write_file_part()
 {
-	if (file_part.start_byte_index + file_part.end_byte_index >= file_part.bytes_written)
+	if (file_part.start_byte_index + file_part.bytes_written >= file_part.end_byte_index)
 	{
+		socket_.close();
+		file_stream->close();
 		timer.expires_from_now(boost::posix_time::seconds(1));
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
-		socket_.close();
+		return;
 	}
 
-    char file_content[1024];
-    file_stream->read(file_content, 1024);
-    boost::asio::async_write(socket_, boost::asio::buffer(file_content, 1024),
+	char file_content[1024] = {'m'};
+	file_stream->read(file_content, file_part.part_size);
+	cout << "part size: " <<file_part.part_size << " Bytes read: " << file_stream->gcount() << endl;
+
+	cout << std::string(file_content, file_part.part_size);
+	boost::asio::async_write(socket_, boost::asio::buffer(file_content, file_part.part_size),
             boost::bind(&UploadWorker::handle_write, this, 
                 boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred, true));
