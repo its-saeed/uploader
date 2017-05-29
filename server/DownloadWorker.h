@@ -35,6 +35,7 @@ private:
     std::string message_;
 	std::ofstream* output_stream;
     boost::asio::streambuf buffer_;
+    char file_buffer[1024];
 	FilePart file_part;
 	FileInfo file_info;
 	bool download_file_part;

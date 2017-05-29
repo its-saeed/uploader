@@ -12,26 +12,30 @@ UploadWorker::UploadWorker(boost::asio::io_service& io_service)
 : io_service(io_service)
 , socket_(io_service)
 , timer(io_service)
+, connected(false)
 {
     file_stream = new std::ifstream;
 	timer.expires_from_now(boost::posix_time::seconds(1));
 	timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
+    connect_socket();
 }
 
 void UploadWorker::timer_timeout()
 {
-	std::string item;
-	bool en = file_parts_queue.try_dequeue(item);
-	if (en)
-	{
-		parse_file_parts(item);
-		connect_socket();
-	}
-	else
-	{
-		timer.expires_from_now(boost::posix_time::seconds(1));
-		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
-	}
+    if (!connected)
+        connect_socket();
+    else
+    {
+        std::string item;
+        bool en = file_parts_queue.try_dequeue(item);
+        if (en)
+        {
+            parse_file_parts(item);
+            return init_file_part_transfer();
+        }
+    }
+    timer.expires_from_now(boost::posix_time::seconds(1));
+    timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
 }
 
 void UploadWorker::parse_file_parts(const std::string& item)
@@ -58,18 +62,21 @@ void UploadWorker::connect_socket()
 void UploadWorker::handle_connect(const boost::system::error_code& error)
 {
     if (!error)
-    {
-		file_stream->open(file_part.file_info.file_name);
-		if (file_stream->is_open())
-		{
-			file_stream->seekg(file_part.start_byte_index);
-			write_file_info();
-		}
-		else
-			cout << "ERROR: can't open file";
-    }
+        connected = true;
 	else
-		cout << "ERROR: " << error.message();
+		cout << "Connection ERROR: " << error.message() << endl;
+}
+
+void UploadWorker::init_file_part_transfer()
+{
+    file_stream->open(file_part.file_info.file_name);
+    if (file_stream->is_open())
+    {
+        file_stream->seekg(file_part.start_byte_index);
+        write_file_info();
+    }
+    else
+        cout << "ERROR: can't open file";
 }
 
 void UploadWorker::write_file_info()
@@ -97,9 +104,11 @@ void UploadWorker::handle_write(const boost::system::error_code& error,
 {
 	if (error)
 	{
-		cout << "ERROR: " << error.message();
+		cout << "Write ERROR: " << error.message() << endl;
 		return;
 	}
+
+    cout << "bytes transferred: " << bytes_transferred;
 	if (file_content_transferred)
 		file_part.bytes_written += bytes_transferred;
     write_file_part();
@@ -109,7 +118,6 @@ void UploadWorker::write_file_part()
 {
 	if (file_part.start_byte_index + file_part.bytes_written >= file_part.end_byte_index)
 	{
-		socket_.close();
 		file_stream->close();
 		timer.expires_from_now(boost::posix_time::seconds(1));
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
@@ -118,9 +126,9 @@ void UploadWorker::write_file_part()
 
 	char file_content[1024] = {'m'};
 	file_stream->read(file_content, file_part.part_size);
-	cout << "part size: " <<file_part.part_size << " Bytes read: " << file_stream->gcount() << endl;
 
-	cout << std::string(file_content, file_part.part_size);
+    cout << "write file content" << endl;
+
 	boost::asio::async_write(socket_, boost::asio::buffer(file_content, file_part.part_size),
             boost::bind(&UploadWorker::handle_write, this, 
                 boost::asio::placeholders::error,

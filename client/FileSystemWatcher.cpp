@@ -4,6 +4,7 @@
 #include <concurrentqueue.h>
 #include <boost/bind.hpp>
 #include <sys/stat.h>
+#include <iostream>
 
 using namespace std;
 
@@ -20,19 +21,6 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service)
     timer.expires_from_now(boost::posix_time::seconds(5));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
     FW::WatchID watchID = file_watcher.addWatch("/home/saeed/upload/", this, true);
-}
-
-void FileSystemWatcher::operator()()
-{
-    while (true)
-    {
-    }
-
-    //file_parts_queue.enqueue("output/0/1024");
-    //file_parts_queue.enqueue("output/1024/2048");
-    //file_parts_queue.enqueue("output/2048/3072");
-    //file_parts_queue.enqueue("output/3072/4096");
-    //file_parts_queue.enqueue("output/4096/5120");
 }
 
 void FileSystemWatcher::timer_timeout()
@@ -62,8 +50,10 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
 
     size_t end_of_file_size = file_size % 1024;
 
+    std::cout << "file parts:" << file_part_count << endl;
+
     if (end_of_file_size)
-        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count, end_of_file_size, file_part_count * 1024, (file_part_count * 1024) + end_of_file_size));
+        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count++, end_of_file_size, file_part_count * 1024, (file_part_count * 1024) + end_of_file_size));
 
     boost::asio::streambuf stream_buf;
     std::ostream file_info_stream(&stream_buf);
@@ -89,6 +79,5 @@ std::string FileSystemWatcher::get_file_part_string(const std::string& file_name
     std::string s = to_string(file_id) + DELIMITER + file_name + DELIMITER + to_string(part_number) + DELIMITER + to_string(part_size) + 
         DELIMITER + to_string(start_byte_index) + DELIMITER + to_string(end_byte_index);
 
-    cout << s << endl;
     return s;
 }

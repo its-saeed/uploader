@@ -22,6 +22,7 @@ private:
 	void write_file_part();
 	void timer_timeout();
     void connect_socket();
+    void init_file_part_transfer();
 
     FilePart file_part;
 
@@ -29,6 +30,7 @@ private:
     boost::asio::ip::tcp::socket socket_;
     std::ifstream* file_stream;
     boost::asio::deadline_timer timer;
+    bool connected;
 };
 
 #endif

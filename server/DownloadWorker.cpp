@@ -30,7 +30,7 @@ void DownloadWorker::handle_read(const boost::system::error_code& error,
 {
 	if (error)
 	{
-		socket_.close();
+        cout << "Read ERROR" << error.message() << endl;
 		return;
 	}
 
@@ -46,7 +46,7 @@ void DownloadWorker::handle_read(const boost::system::error_code& error,
 	{
 		output_stream->open("/home/saeed/download/" +
 							to_string(file_part.file_info.file_id) + "_part_" + std::to_string(file_part.part_number));
-		boost::asio::async_read(socket_, buffer_,
+		socket_.async_read_some(boost::asio::buffer(file_buffer, 1024),
 								boost::bind(&DownloadWorker::handle_read_file_content, shared_from_this(),
 											boost::asio::placeholders::error,
 											boost::asio::placeholders::bytes_transferred));
@@ -55,17 +55,24 @@ void DownloadWorker::handle_read(const boost::system::error_code& error,
 
 void DownloadWorker::handle_read_file_content(const boost::system::error_code &error, std::size_t bytes_transferred)
 {
-	char buf[1024];
-	std::istream stream(&buffer_);
-	stream.read(buf, bytes_transferred);
-	output_stream->write(buf, bytes_transferred);
+    cout << "file content bytes trans: " << bytes_transferred << endl;
+    if (error)
+        cout << "Content Read Error " << error.message() << endl;
+
+    if (!bytes_transferred)
+        return;
+
+	output_stream->write(file_buffer, bytes_transferred);
 	file_part.bytes_written += bytes_transferred;
+
+    cout << (float(file_part.bytes_written) / file_part.part_size) * 100 << "%" << endl;
 
 	if (file_part.bytes_written >= file_part.part_size)
 	{
-		socket_.close();
 		output_stream->close();
+        download_file_part = false;
 		file_map.file_part_downloaded(file_part.file_info.file_id);
+        start();
 		return;
 	}
 	boost::asio::async_read(socket_, buffer_,
@@ -85,16 +92,17 @@ void DownloadWorker::parse_incoming_data()
 
 	if (parts.at(0) == "0")		// File Info
 	{
+        cout << "File info recv" << endl;
 		download_file_part = false;
 		file_info.file_id = stol(parts.at(1));
 		file_info.file_size = stol(parts.at(2));
 		file_info.part_no = stol(parts.at(3));
 		file_info.file_name = parts.at(4);
 		file_map.insert_file(file_info);
-		std::cout << "file is about to received: " <<  output;
 	}
 	else if (parts.at(0) == "1")		// File part
 	{
+        cout << "File part recv" << endl;
 		download_file_part = true;
 		file_part.file_info.file_id = stol(parts.at(1));
 		file_part.part_number = stol(parts.at(2));

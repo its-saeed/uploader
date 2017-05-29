@@ -10,8 +10,6 @@ class FileSystemWatcher : public FW::FileWatchListener
 {
 public:
     FileSystemWatcher(boost::asio::io_service&);
-    void operator()();
-
     void handleFileAction(FW::WatchID watchid, const FW::String& dir, const FW::String& filename,
             FW::Action action);
     

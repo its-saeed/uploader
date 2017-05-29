@@ -27,9 +27,10 @@ private:
 	void handle_accept(DownloadWorker::pointer new_connection,
             const boost::system::error_code& error)
     {
-		std::cout << "new connection\n";
         if (!error)
             new_connection->start();
+        else
+            std::cout << "Error connection: " << error.message();
 
         start_accept();
     }
