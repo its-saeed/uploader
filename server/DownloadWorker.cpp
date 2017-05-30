@@ -20,10 +20,21 @@ DownloadWorker::DownloadWorker(boost::asio::io_service &io_service,
 
 void DownloadWorker::start()
 {
-	boost::asio::async_read_until(socket_, buffer_,'\n',
-								  boost::bind(&DownloadWorker::handle_read, shared_from_this(),
-											  boost::asio::placeholders::error,
-											  boost::asio::placeholders::bytes_transferred));
+	boost::asio::read_until(socket_, buffer_,'\n');
+	parse_incoming_data();
+	if (!download_file_part)
+		boost::asio::async_read_until(socket_, buffer_, '\n',
+									  boost::bind(&DownloadWorker::handle_read, shared_from_this(),
+												  boost::asio::placeholders::error,
+												  boost::asio::placeholders::bytes_transferred));
+	else
+	{
+		file_part_buffer.part_size = file_part.part_size;
+		socket_.async_read_some(boost::asio::buffer(file_part_buffer.get_buffer_raw_pointer(), file_part.part_size),
+								boost::bind(&DownloadWorker::handle_read_file_content, shared_from_this(),
+											boost::asio::placeholders::error,
+											boost::asio::placeholders::bytes_transferred));
+	}
 }
 
 void DownloadWorker::handle_read(const boost::system::error_code& error,
@@ -64,16 +75,15 @@ void DownloadWorker::handle_read_file_content(const boost::system::error_code &e
 	file_part.bytes_written += bytes_transferred;
     size_t remaining_bytes = file_part.part_size - file_part.bytes_written;
 
-    printf("Remaining bytes: %lu\n", remaining_bytes);
 	if (remaining_bytes == 0)
 	{
         download_file_part = false;
 		file_map.file_part_downloaded(file_part, FilePartDumpBuffer(file_part_buffer));
-        start();
+		cout << "part downloaded: file id: " << file_part.file_info.file_id << ", part no: " << file_part.part_number << endl;
+		start();
 		return;
 	}
 
-	cout << "download reamin" << endl;
 	socket_.async_read_some(boost::asio::buffer(file_part_buffer.get_buffer_raw_pointer() + file_part.bytes_written, remaining_bytes),
             boost::bind(&DownloadWorker::handle_read_file_content, shared_from_this(),
                 boost::asio::placeholders::error,
@@ -99,6 +109,7 @@ void DownloadWorker::parse_incoming_data()
 		file_info.part_no = stol(parts.at(3));
 		file_info.file_name = parts.at(4);
 		file_map.insert_file(file_info);
+		cout << "file info: " << file_info.file_id << endl;
 	}
 	else if (parts.at(0) == "1")		// File part
 	{
@@ -109,5 +120,6 @@ void DownloadWorker::parse_incoming_data()
 		file_part.part_number = stol(parts.at(2));
 		file_part.part_size = stol(parts.at(3));
 		file_part.bytes_written = 0;
+		cout << "part info, file id: "<< file_part.file_info.file_id << ", part no:" << file_part.part_number << endl;
 	}
 }

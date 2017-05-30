@@ -60,7 +60,7 @@ void UploadWorker::timer_timeout()
             return init_file_part_transfer();
         }
     }
-	timer.expires_from_now(boost::posix_time::milliseconds(100));
+	timer.expires_from_now(boost::posix_time::milliseconds(500));
 	timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
 }
 
@@ -106,7 +106,8 @@ void UploadWorker::write_file_info()
 	boost::asio::streambuf stream_buf;
 	std::ostream file_info_stream(&stream_buf);
 	file_info_stream << file_info;
-	boost::asio::write(socket_, stream_buf);
+	boost::asio::write(socket_, boost::asio::buffer(file_info));
+	cout << file_part.part_number << "info transferred." << endl;
 	start_file_transfer();
 }
 
@@ -137,13 +138,14 @@ void UploadWorker::some_of_file_part_transferred(const boost::system::error_code
 	file_part.bytes_written += bytes_transferred;
 	if (file_part.start_byte_index + file_part.bytes_written >= file_part.end_byte_index)
 	{
+		cout << file_part.part_number << " transferred." << endl;
 		file_stream->close();
 		timer.expires_from_now(boost::posix_time::milliseconds(100));
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
 		return;
 	}
 
-    char* buffer_start = file_content + file_part.bytes_written;
+	buffer_start = file_content + file_part.bytes_written;
     size_t buffer_length = file_part.part_size - file_part.bytes_written;
 
 	socket_.async_write_some(boost::asio::buffer(buffer_start, buffer_length),

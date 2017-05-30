@@ -18,9 +18,9 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 , file_index(0)
 , transmission_unit(transmission_unit)
 {
-    boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 12345);
+	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 12344);
     socket.connect(endpoint);
-    timer.expires_from_now(boost::posix_time::seconds(5));
+	timer.expires_from_now(boost::posix_time::seconds(2));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
     FW::WatchID watchID = file_watcher.addWatch("/home/saeed/upload/", this, true);
 }
@@ -28,7 +28,7 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 void FileSystemWatcher::timer_timeout()
 {
     file_watcher.update();
-    timer.expires_from_now(boost::posix_time::seconds(5));
+	timer.expires_from_now(boost::posix_time::seconds(2));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
 }
 
@@ -45,33 +45,33 @@ void FileSystemWatcher::handleFileAction(FW::WatchID watchid, const FW::String& 
 
 void FileSystemWatcher::add_file_to_queue(const std::string path, const std::string& file_name, intmax_t file_size)
 {
+	std::vector<std::string> file_parts;
+	int file_part_count = 0;
+	for (file_part_count = 0; file_part_count < file_size / transmission_unit; ++file_part_count)
+		file_parts.push_back(get_file_part_string(path + file_name, file_index, file_part_count, transmission_unit, file_part_count * transmission_unit, (file_part_count + 1) * transmission_unit));
 
-    int file_part_count = 0;
-    for (file_part_count = 0; file_part_count < file_size / transmission_unit; ++file_part_count)
-        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count, transmission_unit, file_part_count * transmission_unit, (file_part_count + 1) * transmission_unit));
+	size_t end_of_file_size = file_size % transmission_unit;
+	if (end_of_file_size)
+		file_parts.push_back(get_file_part_string(path + file_name, file_index, file_part_count++, end_of_file_size, file_part_count * transmission_unit, (file_part_count * transmission_unit) + end_of_file_size));
 
-    size_t end_of_file_size = file_size % transmission_unit;
-
-    std::cout << "file parts:" << file_part_count << endl;
-
-    if (end_of_file_size)
-        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count++, end_of_file_size, file_part_count * transmission_unit, (file_part_count * transmission_unit) + end_of_file_size));
-
-    boost::asio::streambuf stream_buf;
-    std::ostream file_info_stream(&stream_buf);
-    std::string to_be_sent;
-    static constexpr char DELIMITER = '|';
-    to_be_sent += std::to_string(0) + DELIMITER;        // Type of message
-    to_be_sent += std::to_string(file_index) + DELIMITER;        // File ID
-    to_be_sent += std::to_string(file_size) + DELIMITER;     // File Size
-    to_be_sent += std::to_string(file_part_count) + DELIMITER;        // File Parts
-    to_be_sent += file_name + DELIMITER;                 // File name
-    to_be_sent += "\n";
+	boost::asio::streambuf stream_buf;
+	std::ostream file_info_stream(&stream_buf);
+	to_be_sent.clear();
+	static constexpr char DELIMITER = '|';
+	to_be_sent += std::to_string(0) + DELIMITER;        // Type of message
+	to_be_sent += std::to_string(file_index) + DELIMITER;        // File ID
+	to_be_sent += std::to_string(file_size) + DELIMITER;     // File Size
+	to_be_sent += std::to_string(file_part_count) + DELIMITER;        // File Parts
+	to_be_sent += file_name + DELIMITER;                 // File name
+	to_be_sent += "\n";
 
 	cout << "TOBESENT: " << to_be_sent << endl;
 
-    file_info_stream << to_be_sent;
-    boost::asio::write(socket, stream_buf);
+	file_info_stream << to_be_sent;
+	boost::asio::write(socket, boost::asio::buffer(to_be_sent));
+
+	for(const std::string& item : file_parts)
+		file_parts_queue.enqueue(item);
 
     ++file_index;
 }

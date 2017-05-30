@@ -37,6 +37,7 @@ private:
     bool connected;
     size_t transmission_unit;
 	char* file_content;
+	char* buffer_start;
 };
 
 #endif

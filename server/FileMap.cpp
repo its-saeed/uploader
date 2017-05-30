@@ -9,6 +9,7 @@ using namespace std;
 void FileMap::insert_file(const FileInfo &file_info)
 {
 	std::lock_guard<std::mutex> lock(file_map_mutex);
+	cout << "file info added " << file_info.file_id << endl;
 	files.insert({file_info.file_id, file_info});
 }
 
@@ -21,18 +22,20 @@ void FileMap::file_part_downloaded(const FilePart& file_part, FilePartDumpBuffer
 
 		auto itr = files.find(file_id);
 		if (itr == files.end())
+		{
+			cout << "file does not exist. file id: " << file_id << endl;
 			return;
+		}
 
 		FileInfo& file_info = itr->second;
 		file_info.part_no -= 1;
 		file_info.file_parts.insert({file_part.part_number, file_part_buffer});
 
-		cout << "Remaining part: \n" << file_info.part_no;
+		cout << "ramaining : " << file_info.part_no;
 
 		if (file_info.part_no != 0)
 			return;
 
-		std::cout << file_info.file_name << " downloaded" << endl;
 		downloaded_file = std::move(itr->second);
 		files.erase(itr);
 	}
@@ -53,7 +56,6 @@ void FileMap::write_downloaded_file_to_disk(const FileInfo& file_info)
 
 	for (auto file_part_buffer : file_info.file_parts)
 	{
-		cout << "part written" <<file_part_buffer.second.part_size << endl;
 		output_stream.write(file_part_buffer.second.get_buffer_raw_pointer(),
 							file_part_buffer.second.part_size);
 	}
