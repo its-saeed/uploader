@@ -17,7 +17,7 @@ private:
     void start_accept()
     {
 		DownloadWorker::pointer new_connection =
-			DownloadWorker::create(acceptor.get_io_service());
+			DownloadWorker::create(acceptor.get_io_service(), 1024 * 1024);
 
         acceptor.async_accept(new_connection->socket(), 
 				boost::bind(&FileServer::handle_accept, this, new_connection,

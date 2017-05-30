@@ -11,26 +11,32 @@
 class UploadWorker
 {
 public:
-    UploadWorker(boost::asio::io_service& io_service);
+    UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit);
+	~UploadWorker();
     
 private:
     void handle_connect(const boost::system::error_code& error);
-	void handle_write(const boost::system::error_code& error,
-			std::size_t bytes_transfered, bool file_content_transferred);
+    void file_info_transferred(const boost::system::error_code& error,
+            std::size_t bytes_transferred);
+	void some_of_file_part_transferred(const boost::system::error_code& error,
+			std::size_t bytes_transfered);
     void parse_file_parts(const std::string& item);
 	void write_file_info();
-	void write_file_part();
+    void start_file_transfer();
 	void timer_timeout();
     void connect_socket();
     void init_file_part_transfer();
 
     FilePart file_part;
+	std::string file_info;
 
     boost::asio::io_service& io_service;
     boost::asio::ip::tcp::socket socket_;
     std::ifstream* file_stream;
     boost::asio::deadline_timer timer;
     bool connected;
+    size_t transmission_unit;
+	char* file_content;
 };
 
 #endif

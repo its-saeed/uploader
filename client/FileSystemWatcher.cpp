@@ -10,11 +10,13 @@ using namespace std;
 
 extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
 
-FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service)
+FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
+        size_t transmission_unit)
 : io_service(io_service)
 , socket(io_service)
 , timer(io_service, boost::posix_time::seconds(1))
 , file_index(0)
+, transmission_unit(transmission_unit)
 {
     boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 12345);
     socket.connect(endpoint);
@@ -45,15 +47,15 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
 {
 
     int file_part_count = 0;
-    for (file_part_count = 0; file_part_count < file_size / 1024; ++file_part_count)
-        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count, 1024, file_part_count * 1024, (file_part_count + 1) * 1024));
+    for (file_part_count = 0; file_part_count < file_size / transmission_unit; ++file_part_count)
+        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count, transmission_unit, file_part_count * transmission_unit, (file_part_count + 1) * transmission_unit));
 
-    size_t end_of_file_size = file_size % 1024;
+    size_t end_of_file_size = file_size % transmission_unit;
 
     std::cout << "file parts:" << file_part_count << endl;
 
     if (end_of_file_size)
-        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count++, end_of_file_size, file_part_count * 1024, (file_part_count * 1024) + end_of_file_size));
+        file_parts_queue.enqueue(get_file_part_string(path + file_name, file_index, file_part_count++, end_of_file_size, file_part_count * transmission_unit, (file_part_count * transmission_unit) + end_of_file_size));
 
     boost::asio::streambuf stream_buf;
     std::ostream file_info_stream(&stream_buf);
@@ -65,6 +67,8 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
     to_be_sent += std::to_string(file_part_count) + DELIMITER;        // File Parts
     to_be_sent += file_name + DELIMITER;                 // File name
     to_be_sent += "\n";
+
+	cout << "TOBESENT: " << to_be_sent << endl;
 
     file_info_stream << to_be_sent;
     boost::asio::write(socket, stream_buf);

@@ -12,9 +12,9 @@ class DownloadWorker : public boost::enable_shared_from_this<DownloadWorker>
 public:
     typedef boost::shared_ptr<DownloadWorker> pointer;
 
-    static pointer create(boost::asio::io_service& io_service)
+    static pointer create(boost::asio::io_service& io_service, size_t transmission_unit)
     {
-        return pointer(new DownloadWorker(io_service));
+        return pointer(new DownloadWorker(io_service, transmission_unit));
     }
 
 	boost::asio::ip::tcp::socket& socket()
@@ -25,7 +25,7 @@ public:
 	void start();
 
 private:
-	DownloadWorker(boost::asio::io_service& io_service);
+	DownloadWorker(boost::asio::io_service& io_service, size_t transmission_unit);
 
     void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 	void handle_read_file_content(const boost::system::error_code& error, std::size_t bytes_transferred);
@@ -33,13 +33,12 @@ private:
 
 	boost::asio::ip::tcp::socket socket_;
     std::string message_;
-	std::ofstream* output_stream;
     boost::asio::streambuf buffer_;
-    char file_buffer[1024];
 	FilePart file_part;
 	FileInfo file_info;
 	bool download_file_part;
-
+    size_t transmission_unit;
+	FilePartDumpBuffer file_part_buffer;
 };
 
 

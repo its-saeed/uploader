@@ -20,22 +20,22 @@ class UploadManager
 public:
     UploadManager(boost::asio::io_service& io_service)
     : io_service(io_service)
-    , watcher{io_service}
-	, worker1{io_service}
-//	, worker2{io_service}
-//	, worker3{io_service}
-//	, worker4{io_service}
-//	, worker5{io_service}
+    , watcher(io_service, 1024 * 1024)
+	, worker1(io_service, 1024 * 1024)
+	//, worker2(io_service, 1024 * 1024)
+	//, worker3(io_service, 1024 * 1024)
+	//, worker4(io_service, 1024 * 1024)
+	//, worker5(io_service, 1024 * 1024)
     {
     }
  
 private:
     std::thread file_system_watcher_thread;
 	UploadWorker worker1;
-//	UploadWorker worker2;
-//	UploadWorker worker3;
-//	UploadWorker worker4;
-//	UploadWorker worker5;
+	//UploadWorker worker2;
+	//UploadWorker worker3;
+	//UploadWorker worker4;
+	//UploadWorker worker5;
 	boost::asio::io_service& io_service;
     FileSystemWatcher watcher;
 };

@@ -2,6 +2,39 @@
 #define FILE_INFO_H_
 
 #include <string>
+#include <map>
+#include <memory>
+#include <cstring>
+
+struct FilePartDumpBuffer
+{
+    typedef std::shared_ptr<char> FilePartBufferPointer;
+
+    FilePartDumpBuffer()
+        : part_pointer(new char[1024 * 1024])
+    {
+    }
+
+    FilePartDumpBuffer(const FilePartDumpBuffer& other)
+        : part_pointer(new char[1024 * 1024])
+        , part_size(other.part_size)
+    {
+	std::memcpy(this->get_buffer_raw_pointer(), other.get_buffer_raw_pointer(), this->part_size);
+    }
+
+    char* get_buffer_raw_pointer()
+    {
+	return part_pointer.get();
+    }
+
+    const char* get_buffer_raw_pointer() const
+    {
+	return part_pointer.get();
+    }
+
+    FilePartBufferPointer part_pointer;
+    size_t part_size;
+};
 
 struct FileInfo
 {
@@ -24,6 +57,7 @@ struct FileInfo
     std::string file_name;
     intmax_t file_size;
     size_t part_no;
+    std::map<size_t, FilePartDumpBuffer> file_parts;
 };
 
 struct FilePart
