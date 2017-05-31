@@ -28,8 +28,9 @@ private:
 	DownloadWorker(boost::asio::io_service& io_service, size_t transmission_unit);
 
     void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
-	void handle_read_file_content(const boost::system::error_code& error, std::size_t bytes_transferred);
-	void parse_incoming_data();
+	void parse_signaling_bytes(const std::string &signaling);
+	void file_part_bytes_received();
+	void check_if_part_downloaded();
 
 	boost::asio::ip::tcp::socket socket_;
     std::string message_;
@@ -39,6 +40,9 @@ private:
 	bool download_file_part;
     size_t transmission_unit;
 	FilePartDumpBuffer file_part_buffer;
+	char tmp_buffer[1024 * 1024];
+	size_t write_to_buffer_index;
+	size_t consume_index;
 };
 
 

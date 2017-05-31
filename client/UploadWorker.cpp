@@ -103,12 +103,11 @@ void UploadWorker::write_file_info()
 	file_info += to_string(file_part.part_size);
 	file_info += '\n';
 
-	boost::asio::streambuf stream_buf;
-	std::ostream file_info_stream(&stream_buf);
-	file_info_stream << file_info;
-	boost::asio::write(socket_, boost::asio::buffer(file_info));
+	boost::asio::async_write(socket_, boost::asio::buffer(file_info),
+							 boost::bind(&UploadWorker::file_info_transferred, this,
+										 boost::asio::placeholders::error,
+										 boost::asio::placeholders::bytes_transferred));
 	cout << file_part.part_number << "info transferred." << endl;
-	start_file_transfer();
 }
 
 void UploadWorker::file_info_transferred(const boost::system::error_code& error,
