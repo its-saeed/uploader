@@ -23,6 +23,10 @@ DownloadWorker::DownloadWorker(boost::asio::io_service &io_service,
 void DownloadWorker::start()
 {
 	size_t buffer_size = 1024 * 1024 - write_to_buffer_index;
+
+    if (download_file_part)
+        buffer_size = std::min(file_part.part_size - file_part.bytes_written, buffer_size);
+
 	socket_.async_read_some(boost::asio::buffer(tmp_buffer + write_to_buffer_index, buffer_size),
 								  boost::bind(&DownloadWorker::handle_read, shared_from_this(),
 											  boost::asio::placeholders::error,
@@ -43,9 +47,9 @@ void DownloadWorker::handle_read(const boost::system::error_code& error,
 		return file_part_bytes_received();
 
 	// Otherwise we need to see if we have sufficient bytes to get file info section.
-	string buffer_string(tmp_buffer);
+	string buffer_string(tmp_buffer + consume_index, write_to_buffer_index - consume_index);
 	if (buffer_string.find('\n') != string::npos)
-		parse_signaling_bytes(buffer_string.substr(consume_index, buffer_string.find('\n')));
+		parse_signaling_bytes(buffer_string.substr(0, buffer_string.find('\n')));
 
 	start();
 }
@@ -65,7 +69,6 @@ void DownloadWorker::parse_signaling_bytes(const std::string& signaling)
 		file_map.insert_file(file_info);
 		write_to_buffer_index = 0;
 		consume_index = 0;
-		cout << "file info: " << file_info.file_id << endl;
 	}
 	else if (parts.at(0) == "1")		// File part
 	{
@@ -76,7 +79,6 @@ void DownloadWorker::parse_signaling_bytes(const std::string& signaling)
 		file_part.bytes_written = 0;
 		file_part_buffer.part_size = file_part.part_size;
 		consume_index += signaling.size() + 1; 		// +1 for \n
-		cout << "part info, file id: "<< file_part.file_info.file_id << ", part no:" << file_part.part_number << endl;
 	}
 }
 
@@ -105,14 +107,11 @@ void DownloadWorker::check_if_part_downloaded()
 
 	if (remaining_bytes == 0)
 	{
-		if (write_to_buffer_index > consume_index)
-			cout << "WOOOOOOOOOOOW" << endl;
-
-		write_to_buffer_index = 0;
-		consume_index = 0;
 		download_file_part = false;
 		file_map.file_part_downloaded(file_part, FilePartDumpBuffer(file_part_buffer));
-		cout << "part downloaded: file id: " << file_part.file_info.file_id << ", part no: " << file_part.part_number << endl;
+		printf("downloaded %lu\n", file_part.bytes_written);
+		//if (write_to_buffer_index > consume_index)
+            //cout << "WOWOWOWOOW" 
 	}
 
 	if (remaining_bytes < 0)

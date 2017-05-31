@@ -20,7 +20,7 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 {
 	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 12344);
     socket.connect(endpoint);
-	timer.expires_from_now(boost::posix_time::seconds(2));
+	timer.expires_from_now(boost::posix_time::seconds(10));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
     FW::WatchID watchID = file_watcher.addWatch("/home/saeed/upload/", this, true);
 }
@@ -28,7 +28,7 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 void FileSystemWatcher::timer_timeout()
 {
     file_watcher.update();
-	timer.expires_from_now(boost::posix_time::seconds(2));
+	timer.expires_from_now(boost::posix_time::seconds(10));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
 }
 
@@ -39,7 +39,10 @@ void FileSystemWatcher::handleFileAction(FW::WatchID watchid, const FW::String& 
         return;
 
     struct stat statbuf;
-    stat(std::string(dir+filename).c_str(), &statbuf);
+    if (stat(std::string(dir+filename).c_str(), &statbuf) == -1)
+        cout << "ERROR IN FILE SIZE" << endl;
+        
+    cout << "FILE size " << statbuf.st_size << endl;
     add_file_to_queue(dir, filename, statbuf.st_size);
 }
 
@@ -71,7 +74,10 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
 	boost::asio::write(socket, boost::asio::buffer(to_be_sent));
 
 	for(const std::string& item : file_parts)
+    {
+        cout << item << endl;
 		file_parts_queue.enqueue(item);
+    }
 
     ++file_index;
 }

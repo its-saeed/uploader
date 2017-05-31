@@ -107,7 +107,6 @@ void UploadWorker::write_file_info()
 							 boost::bind(&UploadWorker::file_info_transferred, this,
 										 boost::asio::placeholders::error,
 										 boost::asio::placeholders::bytes_transferred));
-	cout << file_part.part_number << "info transferred." << endl;
 }
 
 void UploadWorker::file_info_transferred(const boost::system::error_code& error,
@@ -137,7 +136,7 @@ void UploadWorker::some_of_file_part_transferred(const boost::system::error_code
 	file_part.bytes_written += bytes_transferred;
 	if (file_part.start_byte_index + file_part.bytes_written >= file_part.end_byte_index)
 	{
-		cout << file_part.part_number << " transferred." << endl;
+		cout << file_part.part_number << " transferred. " << file_part.bytes_written << endl;
 		file_stream->close();
 		timer.expires_from_now(boost::posix_time::milliseconds(100));
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
