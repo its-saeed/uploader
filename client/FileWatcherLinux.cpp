@@ -74,8 +74,7 @@ namespace FW
 	//--------
 	WatchID FileWatcherLinux::addWatch(const String& directory, FileWatchListener* watcher, bool recursive)
 	{
-		int wd = inotify_add_watch (mFD, directory.c_str(), 
-			IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_MOVED_FROM | IN_DELETE);
+		int wd = inotify_add_watch (mFD, directory.c_str(),  IN_CLOSE_WRITE);
 		if (wd < 0)
 		{
 			if(errno == ENOENT)

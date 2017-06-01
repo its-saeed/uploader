@@ -20,7 +20,7 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 {
 	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 12344);
     socket.connect(endpoint);
-	timer.expires_from_now(boost::posix_time::seconds(10));
+	timer.expires_from_now(boost::posix_time::seconds(2));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
     FW::WatchID watchID = file_watcher.addWatch("/home/saeed/upload/", this, true);
 }
@@ -28,16 +28,13 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 void FileSystemWatcher::timer_timeout()
 {
     file_watcher.update();
-	timer.expires_from_now(boost::posix_time::seconds(10));
+	timer.expires_from_now(boost::posix_time::seconds(2));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
 }
 
 void FileSystemWatcher::handleFileAction(FW::WatchID watchid, const FW::String& dir, const FW::String& filename,
         FW::Action action)
 {
-    if (action != FW::Actions::Add)
-        return;
-
     struct stat statbuf;
     if (stat(std::string(dir+filename).c_str(), &statbuf) == -1)
         cout << "ERROR IN FILE SIZE" << endl;
