@@ -1,2 +1,6 @@
 Debug
 Release
+Default
+*.user
+server_upload
+client_upload
