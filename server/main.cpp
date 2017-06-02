@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cxxopts.hpp>
+#include <plog/Log.h>
 
 #include "FileServer.h"
 #include "FileMap.h"
@@ -10,6 +11,7 @@ FileMap file_map;
 
 int main(int argc, char** argv)
 {
+	plog::init(plog::debug, "server_log.txt");
 	cxxopts::Options options("File Downloader", "Download files inside a folder.");
 	options.add_options()
 			("p,port", "Port number of the server.", cxxopts::value<uint16_t>())

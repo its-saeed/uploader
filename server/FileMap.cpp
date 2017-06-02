@@ -1,8 +1,8 @@
 #include "FileMap.h"
 
-#include <iostream>
 #include <string>
 #include <fstream>
+#include <plog/Log.h>
 
 using namespace std;
 
@@ -22,7 +22,7 @@ void FileMap::file_part_downloaded(const FilePart& file_part, FilePartDumpBuffer
 		auto itr = files.find(file_id);
 		if (itr == files.end())
 		{
-			cout << "file does not exist. file id: " << file_id << endl;
+			LOG_WARNING << "FileMap::file_part_downloaded: file id doesn't exist. " << file_id << endl;
 			return;
 		}
 
@@ -52,7 +52,7 @@ void FileMap::write_downloaded_file_to_disk(const FileInfo& file_info)
 
 	if (!output_stream.is_open())
 	{
-		cout << "ERRRO opening file\n";
+		LOG_ERROR << "FileMap:::write_downloaded_file_to_disk: Error openning file. " << endl;
 		return;
 	}
 

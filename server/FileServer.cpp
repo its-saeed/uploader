@@ -1,6 +1,7 @@
 #include "FileServer.h"
 
 #include <iostream>
+#include <plog/Log.h>
 
 using namespace std;
 
@@ -28,7 +29,7 @@ void FileServer::handle_accept(DownloadWorker::pointer new_connection, const boo
 	if (!error)
 		new_connection->start();
 	else
-		std::cout << "Error connection: " << error.message();
+		LOG_ERROR << "Error connection: " << error.message();
 
 	start_accept();
 }

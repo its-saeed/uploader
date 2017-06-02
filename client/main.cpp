@@ -8,6 +8,7 @@
 #include <boost/asio.hpp>
 
 #include <cxxopts.hpp>
+#include <plog/Log.h>
 
 #include "UploadWorker.h"
 #include "FileSystemWatcher.h"
@@ -38,6 +39,7 @@ private:
 
 int main(int argc, char** argv)
 {
+	plog::init(plog::debug, "server_log.txt");
 	cxxopts::Options options("File Uploader", "Upload files inside a folder to server specified.");
 	options.add_options()("i,ip", "IP address of the server.", cxxopts::value<std::string>())
 			("p,port", "Port number of the server.", cxxopts::value<uint16_t>())

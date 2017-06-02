@@ -5,6 +5,7 @@
 #include <boost/bind.hpp>
 #include <boost/algorithm/string.hpp>
 #include <thread>
+#include <plog/Log.h>
 #include "FileMap.h"
 
 using namespace std;
@@ -43,7 +44,7 @@ void DownloadWorker::handle_read(const boost::system::error_code& error,
 	write_to_buffer_index += bytes_transferred;
 	if (error)
 	{
-        cout << "Read ERROR" << error.message() << endl;
+		LOG_ERROR << "DownloadWorker::handle_read read error" << error.message() << endl;
 		return;
 	}
 

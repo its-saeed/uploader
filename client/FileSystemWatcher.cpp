@@ -68,10 +68,7 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
 	boost::asio::write(socket, boost::asio::buffer(to_be_sent));
 
 	for(const std::string& item : file_parts)
-    {
-        cout << item << endl;
 		file_parts_queue.enqueue(item);
-    }
 
     ++file_index;
 }
