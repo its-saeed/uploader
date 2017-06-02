@@ -44,7 +44,7 @@ void DownloadWorker::handle_read(const boost::system::error_code& error,
 	write_to_buffer_index += bytes_transferred;
 	if (error)
 	{
-		LOG_ERROR << "DownloadWorker::handle_read read error" << error.message() << endl;
+		LOG_ERROR << error.message();
 		return;
 	}
 

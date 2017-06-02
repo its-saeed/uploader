@@ -15,7 +15,9 @@ public:
             FW::Action action);
     
 private:
-    void timer_timeout();
+	void connect_to_server();
+	void handle_connect(boost::system::error_code error);
+	void check_upload_dir_for_change();
     std::string get_file_part_string(const std::string& file_name, size_t file_id, size_t part_number, size_t part_size, size_t start_byte_index,
             size_t end_byte_index);
     void add_file_to_queue(const std::string path, const std::string& file_name, intmax_t file_size);
@@ -26,6 +28,8 @@ private:
     size_t file_index;
 	size_t transmission_unit;
 	std::string to_be_sent;
+	const std::string& server_ip;
+	uint16_t server_port;
 };
 
 #endif

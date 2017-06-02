@@ -52,7 +52,7 @@ void UploadWorker::handle_connect(const boost::system::error_code& error)
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
 	}
 	else
-		LOG_ERROR << "UploadWorker::handle_connect: Connection ERROR: " << error.message() << endl;
+		LOG_ERROR << error.message();
 }
 
 void UploadWorker::timer_timeout()
@@ -95,7 +95,7 @@ void UploadWorker::init_file_part_transfer()
         write_file_info();
     }
     else
-		LOG_ERROR << "UploadWorker::init_file_part_transfer: can't open file" << endl;
+		LOG_ERROR << "Can't open file";
 }
 
 void UploadWorker::write_file_info()
@@ -123,7 +123,7 @@ void UploadWorker::file_info_transferred(const boost::system::error_code& error,
 {
 	if (error)
 	{
-		LOG_ERROR << "UploadWoker::file_info_transferred: " << error.message() << endl;
+		LOG_ERROR << error.message();
 		return;
 	}
 

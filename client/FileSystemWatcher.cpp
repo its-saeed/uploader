@@ -5,6 +5,7 @@
 #include <boost/bind.hpp>
 #include <sys/stat.h>
 #include <iostream>
+#include <plog/Log.h>
 
 using namespace std;
 
@@ -14,22 +15,44 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 		size_t transmission_unit, const string &server_ip, uint16_t server_port, const std::string upload_dir)
 : io_service(io_service)
 , socket(io_service)
-, timer(io_service, boost::posix_time::seconds(1))
+, timer(io_service)
 , file_index(0)
 , transmission_unit(transmission_unit)
+, server_ip(server_ip)
+, server_port(server_port)
 {
-	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
-    socket.connect(endpoint);
-	timer.expires_from_now(boost::posix_time::seconds(2));
-    timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
 	FW::WatchID watchID = file_watcher.addWatch(upload_dir, this, true);
+	connect_to_server();
 }
 
-void FileSystemWatcher::timer_timeout()
+void FileSystemWatcher::connect_to_server()
+{
+	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
+	socket.async_connect(endpoint, boost::bind(
+				&FileSystemWatcher::handle_connect, this,
+				boost::asio::placeholders::error));
+}
+
+void FileSystemWatcher::handle_connect(boost::system::error_code error)
+{
+	if (!error)
+	{
+		timer.expires_from_now(boost::posix_time::seconds(2));
+		timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
+	}
+	else
+	{
+		LOG_ERROR << error.message() << endl;
+		timer.expires_from_now(boost::posix_time::seconds(2));
+		timer.async_wait(boost::bind(&FileSystemWatcher::connect_to_server, this));
+	}
+}
+
+void FileSystemWatcher::check_upload_dir_for_change()
 {
     file_watcher.update();
 	timer.expires_from_now(boost::posix_time::seconds(2));
-    timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
+	timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
 }
 
 void FileSystemWatcher::handleFileAction(FW::WatchID watchid, const FW::String& dir, const FW::String& filename,
@@ -37,7 +60,7 @@ void FileSystemWatcher::handleFileAction(FW::WatchID watchid, const FW::String& 
 {
     struct stat statbuf;
     if (stat(std::string(dir+filename).c_str(), &statbuf) == -1)
-		cerr << "Error in file size" << endl;
+		LOG_WARNING << "File size is not valid.";
         
     add_file_to_queue(dir, filename, statbuf.st_size);
 }
