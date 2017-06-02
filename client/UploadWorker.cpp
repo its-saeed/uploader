@@ -3,21 +3,28 @@
 #include <concurrentqueue.h>
 #include <boost/algorithm/string.hpp>
 #include <iostream>
+#include <thread>
 
 using namespace std;
 
 extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
 
-UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit)
+UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit,
+						   const string &server_ip, uint16_t server_port)
 : io_service(io_service)
 , socket_(io_service)
 , timer(io_service)
 , connected(false)
 , transmission_unit(transmission_unit)
 , file_content(new char[transmission_unit])
+, server_ip(server_ip)
+, server_port(server_port)
 {
     file_stream = new std::ifstream;
 	connect_socket();
+
+	std::thread th{[this](){this->io_service.run();}};
+	th.detach();
 }
 
 UploadWorker::~UploadWorker()
@@ -28,7 +35,7 @@ UploadWorker::~UploadWorker()
 
 void UploadWorker::connect_socket()
 {
-	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 12345);
+	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
 	socket_.async_connect(endpoint, boost::bind(
 				&UploadWorker::handle_connect, this,
 				boost::asio::placeholders::error));
@@ -43,7 +50,7 @@ void UploadWorker::handle_connect(const boost::system::error_code& error)
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
 	}
 	else
-		cout << "Connection ERROR: " << error.message() << endl;
+		cerr << "Connection ERROR: " << error.message() << endl;
 }
 
 void UploadWorker::timer_timeout()
@@ -86,7 +93,7 @@ void UploadWorker::init_file_part_transfer()
         write_file_info();
     }
     else
-        cout << "ERROR: can't open file";
+		cerr << "ERROR: can't open file";
 }
 
 void UploadWorker::write_file_info()
@@ -114,7 +121,7 @@ void UploadWorker::file_info_transferred(const boost::system::error_code& error,
 {
 	if (error)
 	{
-		cout << "file transfer info ERROR: " << error.message() << endl;
+		cerr << "file transfer info ERROR: " << error.message() << endl;
 		return;
 	}
 
@@ -136,7 +143,6 @@ void UploadWorker::some_of_file_part_transferred(const boost::system::error_code
 	file_part.bytes_written += bytes_transferred;
 	if (file_part.start_byte_index + file_part.bytes_written >= file_part.end_byte_index)
 	{
-		cout << file_part.part_number << " transferred. " << file_part.bytes_written << endl;
 		file_stream->close();
 		timer.expires_from_now(boost::posix_time::milliseconds(100));
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));

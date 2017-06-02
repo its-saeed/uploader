@@ -11,18 +11,18 @@ using namespace std;
 extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
 
 FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
-        size_t transmission_unit)
+		size_t transmission_unit, const string &server_ip, uint16_t server_port, const std::string upload_dir)
 : io_service(io_service)
 , socket(io_service)
 , timer(io_service, boost::posix_time::seconds(1))
 , file_index(0)
 , transmission_unit(transmission_unit)
 {
-	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 12344);
+	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
     socket.connect(endpoint);
 	timer.expires_from_now(boost::posix_time::seconds(2));
     timer.async_wait(boost::bind(&FileSystemWatcher::timer_timeout, this));
-    FW::WatchID watchID = file_watcher.addWatch("/home/saeed/upload/", this, true);
+	FW::WatchID watchID = file_watcher.addWatch(upload_dir, this, true);
 }
 
 void FileSystemWatcher::timer_timeout()
@@ -37,9 +37,8 @@ void FileSystemWatcher::handleFileAction(FW::WatchID watchid, const FW::String& 
 {
     struct stat statbuf;
     if (stat(std::string(dir+filename).c_str(), &statbuf) == -1)
-        cout << "ERROR IN FILE SIZE" << endl;
+		cerr << "Error in file size" << endl;
         
-    cout << "FILE size " << statbuf.st_size << endl;
     add_file_to_queue(dir, filename, statbuf.st_size);
 }
 
@@ -64,8 +63,6 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
 	to_be_sent += std::to_string(file_part_count) + DELIMITER;        // File Parts
 	to_be_sent += file_name + DELIMITER;                 // File name
 	to_be_sent += "\n";
-
-	cout << "TOBESENT: " << to_be_sent << endl;
 
 	file_info_stream << to_be_sent;
 	boost::asio::write(socket, boost::asio::buffer(to_be_sent));

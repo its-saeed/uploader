@@ -11,7 +11,8 @@
 class UploadWorker
 {
 public:
-    UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit);
+	UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit
+				 , const std::string& server_ip, uint16_t server_port);
 	~UploadWorker();
     
 private:
@@ -38,6 +39,8 @@ private:
     size_t transmission_unit;
 	char* file_content;
 	char* buffer_start;
+	const std::string& server_ip;
+	uint16_t server_port;
 };
 
 #endif
