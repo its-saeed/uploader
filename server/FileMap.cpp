@@ -9,7 +9,6 @@ using namespace std;
 void FileMap::insert_file(const FileInfo &file_info)
 {
 	std::lock_guard<std::mutex> lock(file_map_mutex);
-	cout << "file info added " << file_info.file_id << endl;
 	files.insert({file_info.file_id, file_info});
 }
 
@@ -30,8 +29,6 @@ void FileMap::file_part_downloaded(const FilePart& file_part, FilePartDumpBuffer
 		FileInfo& file_info = itr->second;
 		file_info.part_no -= 1;
 		file_info.file_parts.insert({file_part.part_number, file_part_buffer});
-
-		cout << "ramaining : " << file_info.part_no;
 
 		if (file_info.part_no != 0)
 			return;

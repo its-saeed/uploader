@@ -4,6 +4,7 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/algorithm/string.hpp>
+#include <thread>
 #include "FileMap.h"
 
 using namespace std;
@@ -18,6 +19,8 @@ DownloadWorker::DownloadWorker(boost::asio::io_service &io_service,
 , write_to_buffer_index(0)
 , consume_index(0)
 {
+	std::thread th{[&io_service](){io_service.run();}};
+	th.detach();
 }
 
 void DownloadWorker::start()
