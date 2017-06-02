@@ -40,9 +40,14 @@ void FileMap::file_part_downloaded(const FilePart& file_part, FilePartDumpBuffer
 	write_downloaded_file_to_disk(downloaded_file);
 }
 
+void FileMap::set_download_path(const string &dpath)
+{
+	download_path = dpath;
+}
+
 void FileMap::write_downloaded_file_to_disk(const FileInfo& file_info)
 {
-	std::string file_name("/home/saeed/download/" + file_info.file_name);
+	std::string file_name(download_path + file_info.file_name);
 	ofstream output_stream(file_name);
 
 	if (!output_stream.is_open())

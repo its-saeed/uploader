@@ -12,10 +12,11 @@ using namespace std;
 extern FileMap file_map;
 
 DownloadWorker::DownloadWorker(boost::asio::io_service &io_service,
-        size_t transmission_unit)
+		size_t transmission_unit)
 : socket_(io_service)
 , download_file_part(false)
 , transmission_unit(transmission_unit)
+, tmp_buffer(new char[transmission_unit])
 , write_to_buffer_index(0)
 , consume_index(0)
 {
@@ -25,7 +26,7 @@ DownloadWorker::DownloadWorker(boost::asio::io_service &io_service,
 
 void DownloadWorker::start()
 {
-	size_t buffer_size = 1024 * 1024 - write_to_buffer_index;
+	size_t buffer_size = transmission_unit - write_to_buffer_index;
 
     if (download_file_part)
         buffer_size = std::min(file_part.part_size - file_part.bytes_written, buffer_size);
