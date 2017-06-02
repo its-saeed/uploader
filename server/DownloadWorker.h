@@ -33,14 +33,12 @@ private:
 	void check_if_part_downloaded();
 
 	boost::asio::ip::tcp::socket socket_;
-    std::string message_;
-    boost::asio::streambuf buffer_;
 	FilePart file_part;
 	FileInfo file_info;
 	bool download_file_part;
     size_t transmission_unit;
 	FilePartDumpBuffer file_part_buffer;
-	char* tmp_buffer;
+	std::unique_ptr<char> temp_buffer;
 	size_t write_to_buffer_index;
 	size_t consume_index;
 };

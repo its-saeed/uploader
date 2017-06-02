@@ -4,8 +4,7 @@
 
 using namespace std;
 
-FileServer::FileServer(
-		boost::asio::io_service &io_service,
+FileServer::FileServer( boost::asio::io_service &io_service,
 		size_t transmission_unit,
 		uint16_t server_port)
 : acceptor(io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), server_port))
