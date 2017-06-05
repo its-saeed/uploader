@@ -11,8 +11,10 @@ using namespace std;
 
 extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
 
-FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
-		size_t transmission_unit, const string &server_ip, uint16_t server_port, const std::string upload_dir)
+FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service, size_t transmission_unit,
+									 const string &server_ip, uint16_t server_port,
+									 bool use_proxy, const std::string& proxy_ip,
+									 const std::string& upload_dir)
 : io_service(io_service)
 , socket(io_service)
 , timer(io_service)
@@ -20,6 +22,8 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 , transmission_unit(transmission_unit)
 , server_ip(server_ip)
 , server_port(server_port)
+, use_proxy(use_proxy)
+, proxy_ip(proxy_ip)
 {
 	FW::WatchID watchID = file_watcher.addWatch(upload_dir, this, true);
 	connect_to_server();
@@ -27,7 +31,11 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service,
 
 void FileSystemWatcher::connect_to_server()
 {
-	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
+	boost::asio::ip::tcp::endpoint endpoint;
+	if (use_proxy)
+		endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(proxy_ip), 80);
+	else
+		endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
 	socket.async_connect(endpoint, boost::bind(
 				&FileSystemWatcher::handle_connect, this,
 				boost::asio::placeholders::error));
@@ -37,8 +45,13 @@ void FileSystemWatcher::handle_connect(boost::system::error_code error)
 {
 	if (!error)
 	{
-		timer.expires_from_now(boost::posix_time::seconds(2));
-		timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
+		if (!use_proxy)
+		{
+			timer.expires_from_now(boost::posix_time::seconds(2));
+			timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
+		}
+		else
+			send_http_connect_message();
 	}
 	else
 	{
@@ -46,6 +59,18 @@ void FileSystemWatcher::handle_connect(boost::system::error_code error)
 		timer.expires_from_now(boost::posix_time::seconds(2));
 		timer.async_wait(boost::bind(&FileSystemWatcher::connect_to_server, this));
 	}
+}
+
+void FileSystemWatcher::send_http_connect_message()
+{
+	std::string connect_string = "CONNECT " +
+			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n";
+
+	boost::asio::write(socket, boost::asio::buffer(connect_string));
+
+	//TODO: Check connect response, at this time I suppose it's 200OK
+	timer.expires_from_now(boost::posix_time::seconds(2));
+	timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
 }
 
 void FileSystemWatcher::check_upload_dir_for_change()

@@ -12,7 +12,8 @@ using namespace std;
 extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
 
 UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit,
-						   const string &server_ip, uint16_t server_port)
+						   const string &server_ip, uint16_t server_port,
+						   bool use_proxy, const std::string& proxy_ip)
 : io_service(io_service)
 , socket_(io_service)
 , timer(io_service)
@@ -21,6 +22,8 @@ UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmiss
 , file_content(new char[transmission_unit])
 , server_ip(server_ip)
 , server_port(server_port)
+, use_proxy(use_proxy)
+, proxy_ip(proxy_ip)
 {
     file_stream = new std::ifstream;
 	connect_socket();
@@ -37,7 +40,12 @@ UploadWorker::~UploadWorker()
 
 void UploadWorker::connect_socket()
 {
-	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
+	boost::asio::ip::tcp::endpoint endpoint;
+	if (use_proxy)
+		endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(proxy_ip), 80);
+	else
+		endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
+
 	socket_.async_connect(endpoint, boost::bind(
 				&UploadWorker::handle_connect, this,
 				boost::asio::placeholders::error));
@@ -47,12 +55,30 @@ void UploadWorker::handle_connect(const boost::system::error_code& error)
 {
 	if (!error)
 	{
-		connected = true;
-		timer.expires_from_now(boost::posix_time::milliseconds(100));
-		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
+		if (!use_proxy)
+		{
+			connected = true;
+			timer.expires_from_now(boost::posix_time::milliseconds(100));
+			timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
+		}
+		else
+			send_http_connect_message();
 	}
 	else
 		LOG_ERROR << error.message();
+}
+
+void UploadWorker::send_http_connect_message()
+{
+	std::string connect_string = "CONNECT " +
+			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n";
+
+	boost::asio::write(socket_, boost::asio::buffer(connect_string));
+
+	//TODO: Check connect response, at this time I suppose it's 200OK
+	connected = true;
+	timer.expires_from_now(boost::posix_time::milliseconds(100));
+	timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
 }
 
 void UploadWorker::timer_timeout()

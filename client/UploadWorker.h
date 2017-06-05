@@ -11,13 +11,15 @@
 class UploadWorker
 {
 public:
-	UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit
-				 , const std::string& server_ip, uint16_t server_port);
+	UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit,
+				 const std::string& server_ip, uint16_t server_port,
+				 bool use_proxy, const std::string& proxy_ip);
 	~UploadWorker();
     
 private:
     void handle_connect(const boost::system::error_code& error);
-    void file_info_transferred(const boost::system::error_code& error,
+	void send_http_connect_message();
+	void file_info_transferred(const boost::system::error_code& error,
             std::size_t bytes_transferred);
 	void some_of_file_part_transferred(const boost::system::error_code& error,
 			std::size_t bytes_transfered);
@@ -41,6 +43,8 @@ private:
 	char* buffer_start;
 	const std::string& server_ip;
 	uint16_t server_port;
+	bool use_proxy;
+	const std::string& proxy_ip;
 };
 
 #endif
