@@ -64,7 +64,7 @@ void FileSystemWatcher::handle_connect(boost::system::error_code error)
 void FileSystemWatcher::send_http_connect_message()
 {
 	std::string connect_string = "CONNECT " +
-			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n";
+			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n\r\n";
 
 	boost::asio::write(socket, boost::asio::buffer(connect_string));
 
