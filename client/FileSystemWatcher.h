@@ -27,12 +27,12 @@ private:
     FW::FileWatcher file_watcher;
     boost::asio::deadline_timer timer;
     size_t file_index;
-	size_t transmission_unit;
-	std::string to_be_sent;
-	const std::string& server_ip;
-	uint16_t server_port;
-	bool use_proxy;
-	const std::string& proxy_ip;
+    size_t transmission_unit;
+    std::string to_be_sent;
+    const std::string server_ip;
+    uint16_t server_port;
+    bool use_proxy;
+    const std::string proxy_ip;
 };
 
 #endif

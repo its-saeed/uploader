@@ -39,12 +39,12 @@ private:
     boost::asio::deadline_timer timer;
     bool connected;
     size_t transmission_unit;
-	char* file_content;
-	char* buffer_start;
-	const std::string& server_ip;
-	uint16_t server_port;
-	bool use_proxy;
-	const std::string& proxy_ip;
+    char* file_content;
+    char* buffer_start;
+    const std::string server_ip;
+    uint16_t server_port;
+    bool use_proxy;
+    const std::string proxy_ip;
 };
 
 #endif

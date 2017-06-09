@@ -99,7 +99,11 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
 
 	size_t end_of_file_size = file_size % transmission_unit;
 	if (end_of_file_size)
-		file_parts.push_back(get_file_part_string(path + file_name, file_index, file_part_count++, end_of_file_size, file_part_count * transmission_unit, (file_part_count * transmission_unit) + end_of_file_size));
+	{
+		file_parts.push_back(get_file_part_string(path + file_name, file_index, file_part_count, end_of_file_size,
+					file_part_count * transmission_unit, (file_part_count * transmission_unit) + end_of_file_size));
+		++file_part_count;
+	}
 
 	boost::asio::streambuf stream_buf;
 	std::ostream file_info_stream(&stream_buf);
