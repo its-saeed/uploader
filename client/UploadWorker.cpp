@@ -13,7 +13,7 @@ extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
 
 UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit,
 						   const string &server_ip, uint16_t server_port,
-						   bool use_proxy, const std::string& proxy_ip)
+						   bool use_proxy, const std::string& proxy_ip, uint16_t proxy_port)
 : io_service(io_service)
 , socket_(io_service)
 , timer(io_service)
@@ -24,6 +24,7 @@ UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmiss
 , server_port(server_port)
 , use_proxy(use_proxy)
 , proxy_ip(proxy_ip)
+, proxy_port(proxy_port)
 {
     file_stream = new std::ifstream;
 	connect_socket();
@@ -42,7 +43,7 @@ void UploadWorker::connect_socket()
 {
 	boost::asio::ip::tcp::endpoint endpoint;
 	if (use_proxy)
-		endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(proxy_ip), 80);
+		endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(proxy_ip), proxy_port);
 	else
 		endpoint = boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(server_ip), server_port);
 
@@ -71,7 +72,7 @@ void UploadWorker::handle_connect(const boost::system::error_code& error)
 void UploadWorker::send_http_connect_message()
 {
 	std::string connect_string = "CONNECT " +
-			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n";
+			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n\r\n";
 
 	boost::asio::write(socket_, boost::asio::buffer(connect_string));
 
@@ -114,7 +115,7 @@ void UploadWorker::parse_file_parts(const std::string& item)
 
 void UploadWorker::init_file_part_transfer()
 {
-    file_stream->open(file_part.file_info.file_name);
+    file_stream->open(file_part.file_info.file_name, ios_base::in | ios_base::binary);
     if (file_stream->is_open())
     {
         file_stream->seekg(file_part.start_byte_index);

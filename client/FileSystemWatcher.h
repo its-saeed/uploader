@@ -10,13 +10,14 @@ class FileSystemWatcher : public FW::FileWatchListener
 {
 public:
 	FileSystemWatcher(boost::asio::io_service&, size_t transmission_unit, const std::string& server_ip,
-					  uint16_t server_port, bool use_proxy, const std::string &proxy_ip, const std::string &upload_dir);
+					  uint16_t server_port, bool use_proxy, const std::string &proxy_ip, uint16_t proxy_port, const std::string &upload_dir);
     void handleFileAction(FW::WatchID watchid, const FW::String& dir, const FW::String& filename,
             FW::Action action);
     
 private:
 	void connect_to_server();
 	void handle_connect(boost::system::error_code error);
+	void handle_read(boost::system::error_code ec, size_t bytes_received);
 	void send_http_connect_message();
 	void check_upload_dir_for_change();
     std::string get_file_part_string(const std::string& file_name, size_t file_id, size_t part_number, size_t part_size, size_t start_byte_index,
@@ -33,6 +34,8 @@ private:
     uint16_t server_port;
     bool use_proxy;
     const std::string proxy_ip;
+	uint16_t proxy_port;
+	char read_buffer[1024];
 };
 
 #endif
