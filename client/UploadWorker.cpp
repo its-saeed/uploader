@@ -1,19 +1,23 @@
 #define BOOST_NO_CXX11_SCOPED_ENUMS
 #include "UploadWorker.h"
-#include <concurrentqueue.h>
+#include "concurrentqueue.h"
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <thread>
+#include "ProgressLogThread.h"
+#include "utils.h"
 
 #include <plog/Log.h>
 
 using namespace std;
 
 extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
+extern moodycamel::ConcurrentQueue<ProgressLogThread::Log> logs_queue;
 
 UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit,
 						   const string &server_ip, uint16_t server_port,
-						   bool use_proxy, const std::string& proxy_ip, uint16_t proxy_port)
+						   bool use_proxy, const std::string& proxy_ip, uint16_t proxy_port,
+						   const std::string& auth)
 : io_service(io_service)
 , socket_(io_service)
 , timer(io_service)
@@ -25,6 +29,7 @@ UploadWorker::UploadWorker(boost::asio::io_service& io_service, size_t transmiss
 , use_proxy(use_proxy)
 , proxy_ip(proxy_ip)
 , proxy_port(proxy_port)
+, auth_token(auth)
 {
     file_stream = new std::ifstream;
 	connect_socket();
@@ -72,11 +77,27 @@ void UploadWorker::handle_connect(const boost::system::error_code& error)
 void UploadWorker::send_http_connect_message()
 {
 	std::string connect_string = "CONNECT " +
-			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n\r\n";
+		server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n";
+
+	if (auth_token.empty())
+		connect_string += "\r\n";
+	else
+		connect_string += "Proxy-Authorization: Basic " + base64_encode((const unsigned char*)auth_token.data(), auth_token.size()) + "\r\n\r\n";
 
 	boost::asio::write(socket_, boost::asio::buffer(connect_string));
 
-	//TODO: Check connect response, at this time I suppose it's 200OK
+	boost::asio::streambuf read_buffer;
+	boost::asio::read_until(socket_, read_buffer, "\r\n");
+
+	boost::asio::streambuf::const_buffers_type bufs = read_buffer.data();
+	std::string str(boost::asio::buffers_begin(bufs), boost::asio::buffers_begin(bufs) + read_buffer.size());
+
+	if (str.find("200") == str.npos)
+	{
+		cout << "Proxy username and/or password is wrong!";
+		exit(-1);
+	}
+
 	connected = true;
 	timer.expires_from_now(boost::posix_time::milliseconds(100));
 	timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
@@ -92,6 +113,11 @@ void UploadWorker::timer_timeout()
         bool en = file_parts_queue.try_dequeue(item);
         if (en)
         {
+			if (item == "empty")		// End of files
+			{
+				socket_.close();
+				return;
+			}
             parse_file_parts(item);
             return init_file_part_transfer();
         }
@@ -173,6 +199,8 @@ void UploadWorker::some_of_file_part_transferred(const boost::system::error_code
 	if (file_part.start_byte_index + file_part.bytes_written >= file_part.end_byte_index)
 	{
 		file_stream->close();
+		logs_queue.enqueue({ ProgressLogThread::PROGRESS_FILE_UPLOAD, file_part.file_info.file_name,
+			0, file_part.part_number });
 		timer.expires_from_now(boost::posix_time::milliseconds(100));
 		timer.async_wait(boost::bind(&UploadWorker::timer_timeout, this));
 		return;

@@ -13,12 +13,13 @@ public:
 
 private:
 	void start_accept();
-
+	void heartbeat_timer_expired();
 	void handle_accept(DownloadWorker::pointer new_connection,
 			const boost::system::error_code& error);
 
 	boost::asio::ip::tcp::acceptor acceptor;
 	size_t transmission_unit;
+	boost::asio::deadline_timer heartbeat_timer;
 };
 
 #endif

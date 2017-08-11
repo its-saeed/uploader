@@ -1,21 +1,25 @@
 #include "FileSystemWatcher.h"
 #include <string>
 #include <iostream>
-#include <concurrentqueue.h>
+#include "concurrentqueue.h"
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/range/iterator_range.hpp>
 #include <sys/stat.h>
 #include <iostream>
 #include <plog/Log.h>
+#include "ProgressLogThread.h"
+#include "utils.h"
 
 using namespace std;
 
 extern moodycamel::ConcurrentQueue<std::string> file_parts_queue;
+extern moodycamel::ConcurrentQueue<ProgressLogThread::Log> logs_queue;
 
 FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service, size_t transmission_unit,
 									 const string &server_ip, uint16_t server_port,
 									 bool use_proxy, const std::string& proxy_ip, uint16_t proxy_port,
-									 const std::string& upload_dir)
+									 const std::string& auth, const std::string& upload_dir)
 : io_service(io_service)
 , socket(io_service)
 , timer(io_service)
@@ -26,8 +30,9 @@ FileSystemWatcher::FileSystemWatcher(boost::asio::io_service& io_service, size_t
 , use_proxy(use_proxy)
 , proxy_ip(proxy_ip)
 , proxy_port(proxy_port)
+, auth_token(auth)
+, upload_path(upload_dir)
 {
-	FW::WatchID watchID = file_watcher.addWatch(upload_dir, this, true);
 	connect_to_server();
 }
 
@@ -48,10 +53,7 @@ void FileSystemWatcher::handle_connect(boost::system::error_code error)
 	if (!error)
 	{
 		if (!use_proxy)
-		{
-			timer.expires_from_now(boost::posix_time::seconds(2));
-			timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
-		}
+			extract_files_to_upload();
 		else
 			send_http_connect_message();
 	}
@@ -66,81 +68,80 @@ void FileSystemWatcher::handle_connect(boost::system::error_code error)
 void FileSystemWatcher::send_http_connect_message()
 {
 	std::string connect_string = "CONNECT " +
-			server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n\r\n";
+		server_ip + ":" + std::to_string(server_port) + " HTTP/1.1\r\n";
 
-         boost::asio::async_read(socket,
-            boost::asio::buffer(read_buffer, 1024),
-            boost::bind(&FileSystemWatcher::handle_read, 
-            this,
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred));
+	if (auth_token.empty())
+		connect_string += "\r\n";
+	else
+		connect_string += "Proxy-Authorization: Basic " + base64_encode((const unsigned char*)auth_token.data(), auth_token.size()) + "\r\n\r\n";
+
 	boost::asio::write(socket, boost::asio::buffer(connect_string));
 
-	//TODO: Check connect response, at this time I suppose it's 200OK
-	timer.expires_from_now(boost::posix_time::seconds(2));
-	timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
-}
+	boost::asio::streambuf read_buffer;
+	boost::asio::read_until(socket, read_buffer, "\r\n");
 
-void FileSystemWatcher::handle_read(boost::system::error_code ec, size_t bytes_received) {
-     if (!ec)
-     {
+	boost::asio::streambuf::const_buffers_type bufs = read_buffer.data();
+	std::string str(boost::asio::buffers_begin(bufs), boost::asio::buffers_begin(bufs) + read_buffer.size());
 
-         /* do your usual handling on the incoming data */
-
-
-         boost::asio::async_read(socket,
-            boost::asio::buffer(read_buffer, 1024),
-            boost::bind(&FileSystemWatcher::handle_read, 
-            this,
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred));
-     }
-
- }
-void FileSystemWatcher::check_upload_dir_for_change()
-{
-    file_watcher.update();
-	timer.expires_from_now(boost::posix_time::seconds(2));
-	timer.async_wait(boost::bind(&FileSystemWatcher::check_upload_dir_for_change, this));
-}
-
-void FileSystemWatcher::handleFileAction(FW::WatchID watchid, const FW::String& dir, const FW::String& filename,
-        FW::Action action)
-{
-	std::string fullname = dir + "\\" + filename;
-	boost::filesystem::path up_path(fullname);
-	string up_basename = up_path.filename().string();
-	if (up_basename != "up.txt" || action != FW::Actions::Modified)
-		return;
-
-	ifstream up_stream(fullname, ios_base::in);
-
-	if (!up_stream.is_open())
+	if (str.find("200") == str.npos)
 	{
-		LOG_ERROR << "up.txt couldn't be opened." << endl;
-		return;
+		cout << "Proxy username and/or password is wrong!";
+		exit(-1);
+	}
+	extract_files_to_upload();
+}
+
+void FileSystemWatcher::extract_files_to_upload()
+{
+	std::vector <string> file_names;
+	boost::filesystem::path up_path(upload_path);
+	if (boost::filesystem::is_regular_file(up_path))
+	{
+		// Open file and add all of files inside it to upload Queue
+		ifstream up_stream(upload_path, ios_base::in);
+		if (!up_stream.is_open())
+		{
+			LOG_ERROR << upload_path << " couldn't be opened." << endl;
+			return;
+		}
+
+		string fileentry;
+
+		while (std::getline(up_stream, fileentry))
+			file_names.push_back(fileentry);
+	}
+	else if(boost::filesystem::is_directory(up_path))
+	{
+		// Otherwise list all files in directory and upload all of them.
+		for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(up_path), {}))
+			if (boost::filesystem::is_regular_file(entry))
+				file_names.push_back(entry.path().string());
 	}
 
-	string fileentry;
-
-	while (std::getline(up_stream, fileentry))
+	for (auto& entry : file_names)
 	{
-		boost::filesystem::path filepath(fileentry);
+		boost::filesystem::path filepath(entry);
 		string basename = filepath.filename().string();
 		string directory = filepath.parent_path().string() + "\\";
 
 		struct stat statbuf;
-		if (stat(fileentry.c_str(), &statbuf) == -1)
+		if (stat(entry.c_str(), &statbuf) == -1)
 			LOG_WARNING << "File size is not valid.";
 
 		add_file_to_queue(directory, basename, statbuf.st_size);
 	}
+
+	// TODO: 10 should be number of concurrent uploaders.
+	// set better end of files for uploaders.
+	for (int i = 0; i < 10; ++i)
+		file_parts_queue.enqueue("empty");
+	socket.close();
 }
 
 void FileSystemWatcher::add_file_to_queue(const std::string path, const std::string& file_name, intmax_t file_size)
 {
 	std::vector<std::string> file_parts;
-	int file_part_count = 0;
+	size_t file_part_count = 0;
 	for (file_part_count = 0; file_part_count < file_size / transmission_unit; ++file_part_count)
 		file_parts.push_back(get_file_part_string(path + file_name, file_index, file_part_count, transmission_unit, file_part_count * transmission_unit, (file_part_count + 1) * transmission_unit));
 
@@ -165,11 +166,21 @@ void FileSystemWatcher::add_file_to_queue(const std::string path, const std::str
 
 	file_info_stream << to_be_sent;
 	boost::asio::write(socket, boost::asio::buffer(to_be_sent));
+	boost::asio::streambuf read_buffer;
+	boost::asio::read(socket, read_buffer,
+		boost::asio::transfer_exactly(4));
 
-	for(const std::string& item : file_parts)
-		file_parts_queue.enqueue(item);
+	boost::asio::streambuf::const_buffers_type bufs = read_buffer.data();
+	std::string str(boost::asio::buffers_begin(bufs), boost::asio::buffers_begin(bufs) + read_buffer.size());
 
-    ++file_index;
+	if (stoi(str) == 200)		// 200 OK
+	{
+		logs_queue.enqueue({ ProgressLogThread::INIT_FILE_UPLOAD, file_name, file_part_count, 0 });
+		for (const std::string& item : file_parts)
+			file_parts_queue.enqueue(item);
+
+		++file_index;
+	}
 }
 
 std::string FileSystemWatcher::get_file_part_string(const std::string& file_name, size_t file_id, size_t part_number, size_t part_size, size_t start_byte_index,

@@ -13,7 +13,7 @@ class UploadWorker
 public:
 	UploadWorker(boost::asio::io_service& io_service, size_t transmission_unit,
 				 const std::string& server_ip, uint16_t server_port,
-				 bool use_proxy, const std::string& proxy_ip, uint16_t proxy_port);
+				 bool use_proxy, const std::string& proxy_ip, uint16_t proxy_port, const std::string& auth);
 	~UploadWorker();
     
 private:
@@ -46,6 +46,7 @@ private:
     bool use_proxy;
     const std::string proxy_ip;
 	uint16_t proxy_port;
+	const std::string auth_token;
 };
 
 #endif

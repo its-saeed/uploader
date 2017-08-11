@@ -10,7 +10,10 @@ FileServer::FileServer( boost::asio::io_service &io_service,
 		uint16_t server_port)
 : acceptor(io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), server_port))
 , transmission_unit(transmission_unit)
+, heartbeat_timer(io_service)
 {
+	heartbeat_timer.expires_from_now(boost::posix_time::seconds(4));
+	heartbeat_timer.async_wait(boost::bind(&FileServer::heartbeat_timer_expired, this));
 	start_accept();
 }
 
@@ -24,10 +27,19 @@ void FileServer::start_accept()
 									  boost::asio::placeholders::error));
 }
 
+void FileServer::heartbeat_timer_expired()
+{
+	heartbeat_timer.expires_from_now(boost::posix_time::seconds(4));
+	heartbeat_timer.async_wait(boost::bind(&FileServer::heartbeat_timer_expired, this));
+}
+
 void FileServer::handle_accept(DownloadWorker::pointer new_connection, const boost::system::error_code &error)
 {
 	if (!error)
+	{
+		cout << "connection stablished" << endl;
 		new_connection->start();
+	}
 	else
 		LOG_ERROR << "Error connection: " << error.message();
 

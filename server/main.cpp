@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 	if (options.count("port") != 1 || options.count("dpath") != 1 || options.count("tranunit") != 1)
 	{
 		cout << options.help();
-		exit(1);
+		//exit(1);
 	}
 
 	std::string download_path;
@@ -35,11 +35,12 @@ int main(int argc, char** argv)
 		transmission_unit = options["tranunit"].as<size_t>();
 	} catch (...) {
 		cout << options.help();
-		exit(1);
+		//exit(1);
 	}
 	boost::asio::io_service io_service;
-	FileServer server(io_service, transmission_unit, server_port);
-	file_map.set_download_path(download_path);
+	//FileServer server(io_service, transmission_unit, server_port);
+	FileServer server(io_service, 1024*1024, 12345);
+	file_map.set_download_path("d:\\projects\\uploader_exe\\download\\");// download_path);
     io_service.run();
     return 0;
 }

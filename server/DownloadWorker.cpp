@@ -74,6 +74,7 @@ void DownloadWorker::parse_signaling_bytes(const std::string& signaling)
 		file_map.insert_file(file_info);
 		write_to_buffer_index = 0;
 		consume_index = 0;
+		boost::asio::write(socket_, boost::asio::buffer("200"));		// send 200 OK
 	}
 	else if (parts.at(0) == "1")		// File part
 	{

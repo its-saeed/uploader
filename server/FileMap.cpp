@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 #include <plog/Log.h>
+#include <iostream>
 
 using namespace std;
 
@@ -37,6 +38,7 @@ void FileMap::file_part_downloaded(const FilePart& file_part, FilePartDumpBuffer
 		files.erase(itr);
 	}
 
+	std::cout << "File downloaded: " << downloaded_file.file_name << endl;
 	write_downloaded_file_to_disk(downloaded_file);
 }
 
@@ -48,13 +50,14 @@ void FileMap::set_download_path(const string &dpath)
 void FileMap::write_downloaded_file_to_disk(const FileInfo& file_info)
 {
 	std::string file_name(download_path + file_info.file_name);
-	ofstream output_stream(file_name);
+	ofstream output_stream(file_name, ios::binary);
 
 	if (!output_stream.is_open())
 	{
 		LOG_ERROR << "FileMap:::write_downloaded_file_to_disk: Error openning file. " << endl;
 		return;
 	}
+
 
 	for (auto file_part_buffer : file_info.file_parts)
 	{
